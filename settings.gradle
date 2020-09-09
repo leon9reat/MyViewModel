@@ -1,2 +1,3 @@
+include ':appJava'
 include ':app'
 rootProject.name = "MyViewModel"
