@@ -10,6 +10,8 @@ import android.widget.ProgressBar;
 
 import androidx.annotation.LongDef;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -33,10 +35,16 @@ public class MainActivity extends AppCompatActivity {
     private Button btnCity;
     private RecyclerView recyclerView;
 
+    private MainViewModel mainViewModel;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mainViewModel = new ViewModelProvider(this, new ViewModelProvider.NewInstanceFactory())
+                .get(MainViewModel.class);
+
 
         initView();
         initAdapter();
@@ -55,65 +63,26 @@ public class MainActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.recyclerView);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
+        mainViewModel.getListWeather().observe(this,
+                new Observer<ArrayList<WeatherItems>>() {
+                    @Override
+                    public void onChanged(ArrayList<WeatherItems> weatherItems) {
+                        if (weatherItems != null) {
+                            adapter.setData(weatherItems);
+                            showLoading(false);
+                        }
+                    }
+                });
+
         btnCity.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 String city = edtCity.getText().toString().trim();
                 if (TextUtils.isEmpty(city)) return;
                 showLoading(true);
-                setWeather(city);
+                mainViewModel.setListWeather(city);
             }
         });
-    }
-
-    private void setWeather(final String cities) {
-        final ArrayList<WeatherItems> listItem = new ArrayList<>();
-        String apiKey = "f534a61d3db189a098634a352b800871";
-        String url = "http://api.openweathermap.org/data/2.5/group?id="
-                + cities + "&units=metric&appid="
-                + apiKey;
-
-        AsyncHttpClient client = new AsyncHttpClient();
-        Log.d("TAG", "onSuccess: "+url);
-        client.get(url, new AsyncHttpResponseHandler() {
-            @Override
-            public void onSuccess(int statusCode, Header[] headers, byte[] responseBody) {
-                String result = new String(responseBody);
-                try {
-
-                    Log.d("TAG", "onSuccess: "+result);
-                    JSONObject responseObject = new JSONObject(result);
-
-                    JSONArray list = responseObject.getJSONArray("list");
-                    for (int i = 0; i < list.length(); i++) {
-                        JSONObject weather = list.getJSONObject(i);
-                        WeatherItems weatherItems = new WeatherItems();
-                        weatherItems.setId(weather.getInt("id"));
-                        weatherItems.setName(weather.getString("name"));
-                        weatherItems.setCurrentWeather(weather.getJSONArray("weather").getJSONObject(0).getString("main"));
-                        weatherItems.setDescription(weather.getJSONArray("weather").getJSONObject(0).getString("description"));
-                        double tempInKelvin = weather.getJSONObject("main").getDouble("temp");
-                        double tempInCelcius = tempInKelvin - 273;
-                        weatherItems.setTemperature(new DecimalFormat("##.##").format(tempInKelvin));
-                        listItem.add(weatherItems);
-                    }
-
-                    // set data to adapter
-                    adapter.setData(listItem);
-                    showLoading(false);
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                } catch (Exception e) {
-                    Log.d("Exception", Objects.requireNonNull(e.getMessage()));
-                }
-            }
-
-            @Override
-            public void onFailure(int statusCode, Header[] headers, byte[] responseBody, Throwable error) {
-                Log.d("onFailure", Objects.requireNonNull(error.getMessage()));
-            }
-        });
-
     }
 
     private void showLoading(Boolean state) {
